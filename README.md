@@ -129,6 +129,13 @@ Download sample SRR24317982 from SRA and place it in the _Example_Fastq_ folder.
 fasterq-dump SRR24317982 --split-files
 ```
 
+Rename Files
+
+```bash
+ mv SRR24317982_1.fastq SRR24317982_R1.fastq
+ mv SRR24317982_2.fastq SRR24317982_R2.fastq
+```
+
 gzip files
 
 ``` Bash
