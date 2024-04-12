@@ -51,7 +51,7 @@ List commands for the pipline:
 |`-with-tower`|Monitor your run with nextflow tower 
 
 
-Example output Cloud:
+Example Cloud:
 ```
 nextflow run greninger-lab/Tpallidum_WGS_Pipeline -r main \
 	--INPUT Example_Fastq/ \
@@ -61,7 +61,7 @@ nextflow run greninger-lab/Tpallidum_WGS_Pipeline -r main \
 	-with-tower 
 ```
 
-Example output Cloud and custom reference:
+Example Cloud and custom reference:
 ```
 nextflow run greninger-lab/Tpallidum_WGS_Pipeline -r main \
 	--INPUT Example_Fastq/ \
@@ -72,7 +72,7 @@ nextflow run greninger-lab/Tpallidum_WGS_Pipeline -r main \
 	-with-tower 
 ```
 
-Example output Local with skip denovo:
+Example Local with skip denovo:
 ```
 nextflow run greninger-lab/Tpallidum_WGS_Pipeline -r main \
 	--INPUT Example_Fastq/ \
@@ -102,6 +102,44 @@ graph TD;
     annotatePilonConsensus-->annotateVCFs;
     callVariants-- SKIP_DENOVO Option -->remapReads; 
 ```
+
+## Running example
+
+Install [sratoolkit](https://github.com/ncbi/sra-tools/wiki/02.-Installing-SRA-Toolkit)
+
+On Mac you can use brew:
+```bash
+brew install sratoolkit
+```
+
+Make an _Example_Fastq_ folder
+
+```bash
+mkdir Example_Fastq 
+```
+
+Enter Example folder 
+```bash
+cd Example_Fastq 
+```
+
+Download sample SRR24317982 from SRA and place it in the _Example_Fastq_ folder.
+
+```bash
+fasterq-dump SRR24317982 --split-files
+```
+
+gzip files
+
+``` Bash
+gzip *.fastq
+```
+
+Exit folder and use one of the example workflows to run example
+
+``` Bash
+cd ..
+``` 
 
 ## Explanation of output
 
