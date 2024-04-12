@@ -308,4 +308,5 @@ workflow {
         removeDuplicates.out[4]
     )
 
+    }
 }
