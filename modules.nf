@@ -247,6 +247,9 @@ process deNovoAssembly {
 
     unicycler -1 ${base}_no_repeat_genes_r1.fastq.gz -2 ${base}_no_repeat_genes_r2.fastq.gz -o ./ -t ${task.cpus}
 
+    cp assembly.gfa ${base}_assembly.gfa
+    cp assembly.fasta ${base}_assembly.fasta
+
     """
 }
 
