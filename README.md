@@ -11,7 +11,7 @@ This pipeline takes gzipped fastq files and outputs consensus fastas annotated w
 3. Setup [nextflow tower](https://seqera.io/)
 
 > [!WARNING]
-Newer versions of java may have issues with spades, it java 17.0.5 has been tested and works.
+Newer versions of java may have issues with spades, java 17.0.5 has been tested and works.
 
 ## Usage
 

@@ -11,9 +11,7 @@ process trimReads {
         file ADAPTERS
     output:
         tuple val(base), file("${base}.R1.paired.fastq.gz"), file("${base}.R2.paired.fastq.gz")// into Trim_out_ch
-        //file("*.csv")
 
-    //publishDir "${params.OUTDIR}trimmed_fastqs", mode: 'copy', pattern: '*.paired.fastq.gz'
     publishDir "${params.OUTDIR}trimmed_fastqs", mode: 'copy', pattern: '*'
 
     script:
@@ -70,8 +68,6 @@ process mapUnmatchedReads {
         tuple val(base),file("${base}_matched_tpa_r1.fastq.gz"), file("${base}_matched_tpa_r2.fastq.gz")// into TPA_matched_reads
         tuple val(base),file("${base}_matched_tpa_r1.fastq.gz"), file("${base}_matched_tpa_r2.fastq.gz")// into TPA_matched_reads2
 
-        // tuple val(base),file("${base}_unmatched_tpa_r1.fastq.gz"), file("${base}_unmatched_tpa_r2.fastq.gz")// into TPA_unmatched_reads
-
     publishDir "${params.OUTDIR}TPA_filtered_fastqs", mode: 'copy', pattern: '*matched_tpa*.fastq.gz'
 
     script:
@@ -114,16 +110,10 @@ process moreFiltering {
 process mapReads {
     container "quay.io/biocontainers/bowtie2:2.4.1--py37h8270d21_3"
 
-    // Retry on fail at most three times
-    //errorStrategy 'retry'
-    //maxRetries 1
-
     publishDir "${params.OUTDIR}mapSams", mode: 'copy', pattern: '*'
 
     input:
         tuple val(base),file("${base}_matched_tpa_r1.fastq.gz"), file("${base}_matched_tpa_r2.fastq.gz"),file("${base}_matched_rRNA_r1.fastq.gz"), file("${base}_matched_rRNA_r2.fastq.gz")
-        //tuple val(base),file("${base}_matched_tpa_r1.fastq.gz"), file("${base}_matched_tpa_r2.fastq.gz")// from Trimmed_filtered_reads_ch1
-        //tuple val(base),file("${base}_matched_rRNA_r1.fastq.gz"), file("${base}_matched_rRNA_r2.fastq.gz")// from TPA_matched_reads
         
         file(NC_021508)
         file(NC_021508_1)
@@ -144,15 +134,14 @@ process mapReads {
     echo "Concatenating TPA and rRNA reads for ${base}..."
     cat ${base}_matched_tpa_r1.fastq.gz ${base}_matched_rRNA_r1.fastq.gz > ${base}_matched_r1.fastq.gz
     cat ${base}_matched_tpa_r2.fastq.gz ${base}_matched_rRNA_r2.fastq.gz > ${base}_matched_r2.fastq.gz
-    #bowtie2 -x NC_021508 -1 '${base}_matched_r1.fastq.gz' -2 '${base}_matched_r2.fastq.gz' -p ${task.cpus} > ${base}.sam
     bowtie2 -x ${params.REFERENCE} -1 '${base}_matched_r1.fastq.gz' -2 '${base}_matched_r2.fastq.gz' -p ${task.cpus} > ${base}.sam
+
     """
 }
 
 // Convert sam to bam
 process samToBam {
-    //container "quay.io/biocontainers/samtools:1.6--h9dace67_6"
-    container "staphb/samtools:latest"
+    container "staphb/samtools:1.19"
 
     input:
         tuple val(base),file("${base}.sam")// from Aligned_sam_ch
@@ -184,7 +173,6 @@ process samToBam {
 
 // Use Picard to remove duplicates and convert bam back to fastq for downstream remapping
 process removeDuplicates{
-    //container "quay.io/biocontainers/picard:latest"
     container "quay.io/biocontainers/picard:2.23.3--0"
 
     input:
@@ -240,21 +228,15 @@ process callVariants {
 // De novo assemble matched reads with Unicycler
 process deNovoAssembly {
     container "quay.io/biocontainers/unicycler:0.4.4--py37h13b99d1_3"
-
-    // Retry on fail at most three times
-    //errorStrategy 'retry'
-    //maxRetries 1
-
-    //errorStrategy 'ignore'
+    
+    errorStrategy 'ignore'
 
     input:
-//        tuple val(base),file("${base}_deduped_r1.fastq"),file("${base}_deduped_r2.fastq") from Deduped_reads
         tuple val(base),file("${base}_no_repeat_genes_r1.fastq.gz"), file("${base}_no_repeat_genes_r2.fastq.gz")// from extra_reads
     output:
         tuple val(base),file("${base}_assembly.gfa"),file("${base}_assembly.fasta")// into Unicycler_ch
         file("*")// into Unicycler_dump_ch
 
-    //publishDir "${params.OUTDIR}unicycler_output", mode: 'copy', pattern: '*'
     publishDir "${params.OUTDIR}unicycler_output/${base}/", mode: 'copy', pattern: '*'
 
     script:
@@ -263,33 +245,7 @@ process deNovoAssembly {
 
     ls -latr
 
-    #/usr/local/bin/unicycler -1 ${base}_no_repeat_genes_r1.fastq.gz -2 ${base}_no_repeat_genes_r2.fastq.gz -o ./ -t ${task.cpus}
-
     unicycler -1 ${base}_no_repeat_genes_r1.fastq.gz -2 ${base}_no_repeat_genes_r2.fastq.gz -o ./ -t ${task.cpus}
-    #unicycler -1 ${base}_no_repeat_genes_r1.fastq.gz -2 ${base}_no_repeat_genes_r2.fastq.gz -o ./ -t 60
-
-    if [ -f "assembly.gfa" ]; then
-
-        #echo "assembly.gfa exists."
-        cp assembly.gfa ${base}_assembly.gfa
-
-    else
-
-        touch ${base}_assembly.gfa
-
-    fi
-
-        if [ -f "assembly.fasta" ]; then
-
-        #echo "assembly.fasta exists."
-        cp assembly.fasta ${base}_assembly.fasta
-
-    else
-
-        touch ${base}_assembly.fasta
-
-    fi
-
 
     """
 }
@@ -297,23 +253,12 @@ process deNovoAssembly {
 //Skip process if Skip Denovo Selected
 // Merges assembly and mapping to make consensus sequence
 process mergeAssemblyMapping {
-    container "quay.io/michellejlin/tpallidum_wgs:latest"
-
-    // Retry on fail at most three times
-    //errorStrategy 'retry'
+    container "quay.io/michellejlin/tpallidum_wgs"
 
     errorStrategy 'ignore'
 
-    //maxRetries 1
-
     input:
-        //tuple val(base),file("${base}_assembly.gfa"),file("${base}_assembly.fasta")
         tuple val(base),file("${base}_assembly.gfa"),file("${base}_assembly.fasta"),file("${base}_firstmap_dedup.bam")// from Unicycler_ch
-
-        //tuple val(base),file("${base}_assembly.gfa"),file("${base}_assembly.fasta")
-        //tuple val(base),file("${base}_firstmap_dedup.bam")// from REMOVE_DUPLICATES.out[1]
-
-        //tuple val(base),file("${base}_firstmap_dedup.bam")// from Sorted_dedup_bam_ch
         file(NC_021508)
         file(NC_021508_BWA1)
         file(NC_021508_BWA2)
@@ -337,25 +282,11 @@ process mergeAssemblyMapping {
     echo ${base}
     ls -latr
 
-    #if [[ -s ${base}_assembly.fasta ]] ; then
-    #echo "${base}_assembly.fasta has data."
-
-    #if [[ -s ${base}_assembly.gfa ]] ; then
-    #echo "${base}_assembly.gfa has data."
-
     cp ${base}_assembly.gfa assembly.gfa
     cp ${base}_assembly.fasta assembly.fasta
 
-    #Rscript --vanilla ${TP_MAKE_SEQ} \'${base}\' \'NC_021508\'
     Rscript --vanilla ${TP_MAKE_SEQ} \'${base}\' \'${params.REFERENCE}\'
 
-    #else
-    #echo "${base}_assembly.gfa is empty."
-    #fi ;
-
-    #else
-    #echo "${base}_assembly.fasta is empty."
-    #fi ;
 
     """
 }
@@ -365,7 +296,6 @@ process remapReads {
 
     input:
         tuple val(base),file("${base}_consensus.fasta"),file("${base}_deduped_r1.fastq"),file("${base}_deduped_r2.fastq")// from Consensus_ch
-        //tuple val(base),file("${base}_deduped_r1.fastq"),file("${base}_deduped_r2.fastq")// from Deduped_reads_ch2
     output:
         tuple val(base),file("${base}_remapped.sorted.bam")// into Remapped_bam_ch
         tuple val(base),file("${base}_remapped.sorted.bam"),file("${base}_remapped.sorted.bam.bai"),file("${base}_consensus.fasta")// into Pilon_ch
@@ -381,8 +311,6 @@ process remapReads {
 
     /usr/local/miniconda/bin/bowtie2-build -q ${base}_consensus.fasta ${base}_aligned_scaffolds_${params.REFERENCE}
     /usr/local/miniconda/bin/bowtie2 -x ${base}_aligned_scaffolds_${params.REFERENCE} -1 ${base}_deduped_r1.fastq -2 ${base}_deduped_r2.fastq -p ${task.cpus} | /usr/src/samtools-1.9/samtools view -bS - > ${base}_remapped.bam
-    #/usr/local/miniconda/bin/bowtie2-build -q ${base}_consensus.fasta ${base}_aligned_scaffolds_NC_021508
-    #/usr/local/miniconda/bin/bowtie2 -x ${base}_aligned_scaffolds_NC_021508 -1 ${base}_deduped_r1.fastq -2 ${base}_deduped_r2.fastq -p ${task.cpus} | /usr/src/samtools-1.9/samtools view -bS - > ${base}_remapped.bam
     
     /usr/src/samtools-1.9/samtools sort -o ${base}_remapped.sorted.bam ${base}_remapped.bam
 
@@ -396,7 +324,6 @@ process remapReads_2 {
     input:
         file("${base}_consensus.fasta")
         tuple val(base),file("${base}_deduped_r1.fastq"),file("${base}_deduped_r2.fastq")
-        //tuple val(base),file("${base}_deduped_r1.fastq"),file("${base}_deduped_r2.fastq")// from Deduped_reads_ch2
     output:
         tuple val(base),file("${base}_remapped.sorted.bam")// into Remapped_bam_ch
         tuple val(base),file("${base}_remapped.sorted.bam"),file("${base}_remapped.sorted.bam.bai"),file("${base}_consensus.fasta")// into Pilon_ch
@@ -412,8 +339,6 @@ process remapReads_2 {
 
     /usr/local/miniconda/bin/bowtie2-build -q ${base}_consensus.fasta ${base}_aligned_scaffolds_${params.REFERENCE}
     /usr/local/miniconda/bin/bowtie2 -x ${base}_aligned_scaffolds_${params.REFERENCE} -1 ${base}_deduped_r1.fastq -2 ${base}_deduped_r2.fastq -p ${task.cpus} | /usr/src/samtools-1.9/samtools view -bS - > ${base}_remapped.bam
-    #/usr/local/miniconda/bin/bowtie2-build -q ${base}_consensus.fasta ${base}_aligned_scaffolds_NC_021508
-    #/usr/local/miniconda/bin/bowtie2 -x ${base}_aligned_scaffolds_NC_021508 -1 ${base}_deduped_r1.fastq -2 ${base}_deduped_r2.fastq -p ${task.cpus} | /usr/src/samtools-1.9/samtools view -bS - > ${base}_remapped.bam
     
     /usr/src/samtools-1.9/samtools sort -o ${base}_remapped.sorted.bam ${base}_remapped.bam
 
@@ -445,7 +370,6 @@ process remapPilon {
 
     input:
         tuple val(base),file("${base}_pilon.fasta"),file("${base}_deduped_r1.fastq"),file("${base}_deduped_r2.fastq")// from Pilon_fasta_ch
-        //tuple val(base),file("${base}_deduped_r1.fastq"),file("${base}_deduped_r2.fastq")// from Deduped_reads_ch3
     output:
         tuple val(base),file("${base}_pilon_remapped.sorted.bam")// into Pilon_bam_ch
         tuple val(base),file("*")// into Remap_pilon_all_ch
@@ -460,8 +384,6 @@ process remapPilon {
 
     /usr/local/miniconda/bin/bowtie2-build -q ${base}_pilon.fasta ${base}_pilon_aligned_scaffolds_${params.REFERENCE}
     /usr/local/miniconda/bin/bowtie2 -x ${base}_pilon_aligned_scaffolds_${params.REFERENCE} -1 ${base}_deduped_r1.fastq -2 ${base}_deduped_r2.fastq -p ${task.cpus} | /usr/src/samtools-1.9/samtools view -bS - > ${base}_pilon_remapped.bam
-    #/usr/local/miniconda/bin/bowtie2-build -q ${base}_pilon.fasta ${base}_pilon_aligned_scaffolds_NC_021508
-    #/usr/local/miniconda/bin/bowtie2 -x ${base}_pilon_aligned_scaffolds_NC_021508 -1 ${base}_deduped_r1.fastq -2 ${base}_deduped_r2.fastq -p ${task.cpus} | /usr/src/samtools-1.9/samtools view -bS - > ${base}_pilon_remapped.bam
     /usr/src/samtools-1.9/samtools sort -o ${base}_pilon_remapped.sorted.bam ${base}_pilon_remapped.bam
 
     /usr/src/samtools-1.9/samtools index -b ${base}_pilon_remapped.sorted.bam ${base}_pilon_remapped.sorted.bam.bai
@@ -473,8 +395,6 @@ process generatePilonConsensus {
 
     input:
         tuple val(base),file("${base}_pilon_remapped.sorted.bam"),file("${base}_pilon.fasta"),file("${base}_firstmap_dedup.bam")// from Pilon_bam_ch
-        //tuple val(base),file("${base}_pilon.fasta")// from Pilon_fasta_ch2
-        //tuple val(base),file("${base}_firstmap_dedup.bam")// from Sorted_dedup_bam_ch4
         file(TP_GENERATE_CONSENSUS)
     output:
         tuple val(base),file("${base}_pilon_finalconsensusv2.fasta"),file("${base}_pilon_mappingstats.csv")// into Prokka_pilon_consensus_ch
@@ -487,7 +407,6 @@ process generatePilonConsensus {
 
     ls -latr
     Rscript --vanilla ${TP_GENERATE_CONSENSUS} \'${base}_pilon' \'${params.REFERENCE}\'
-    #Rscript --vanilla ${TP_GENERATE_CONSENSUS} \'${base}_pilon' \'NC_021508\'
     """
 }
 
@@ -501,8 +420,6 @@ process annotatePilonConsensus {
 
     output:
         file("*")//// into Annotated_pilon_ch
-
-        //file("stats.csv")//// into Stat_Initial
 
     publishDir "${params.OUTDIR}finalconsensus_pilon_prokka_annotations", mode: 'copy', pattern: '*'
 

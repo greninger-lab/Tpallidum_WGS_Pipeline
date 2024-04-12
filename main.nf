@@ -78,12 +78,9 @@ if (!params.OUTDIR.endsWith("/")){
 }
 
 // Reference files
-//s3://fh-pi-jerome-k-eco/greninger-lab/clomp-reference-data/
 ADAPTERS = file("s3://fh-pi-jerome-k-eco/greninger-lab/clomp-reference-data/tool_specific_data/Tpallidum_WGS/All_adapters.fa")
-//REF_FASTAS = file("${baseDir}/refs/TPA_refseqs.fasta")
 REF_FASTAS = file("s3://fh-pi-jerome-k-eco/greninger-lab/clomp-reference-data/tool_specific_data/Tpallidum_WGS/refs/TPA_rRNA_refs.fasta")
 REF_FASTAS_MASKED = file("s3://fh-pi-jerome-k-eco/greninger-lab/clomp-reference-data/tool_specific_data/Tpallidum_WGS/refs/Tp_refs_rRNA_masked.fasta")
-//REF_FASTAS_MASKED = file("${baseDir}/refs/Tp_refs_rRNA_masked.fasta")
 REF_FASTAS_TRIM = file("s3://fh-pi-jerome-k-eco/greninger-lab/clomp-reference-data/tool_specific_data/Tpallidum_WGS/refs/TPA_refseqs_trim.fasta")
 
 NC_021508 = file("s3://fh-pi-jerome-k-eco/greninger-lab/clomp-reference-data/tool_specific_data/Tpallidum_WGS/refs/${params.REFERENCE}.fasta")
@@ -108,7 +105,6 @@ REF_GB = file("s3://fh-pi-jerome-k-eco/greninger-lab/clomp-reference-data/tool_s
 TP_MAKE_SEQ = file("${baseDir}/bin/tp_make_seq.R")
 TP_GENERATE_CONSENSUS = file("${baseDir}/bin/tp_generate_consensus.R")
 
-//REPEAT_FILTER_FASTA = file("s3://fh-pi-jerome-k-eco/greninger-lab/clomp-reference-data/tool_specific_data/Tpallidum_WGS/refs/repeat_filter_UPDATE.fasta")
 REPEAT_FILTER_FASTA = file("s3://fh-pi-jerome-k-eco/greninger-lab/clomp-reference-data/tool_specific_data/Tpallidum_WGS/refs/repeat_filter_with_TprK.fasta")
 
 CONVERT_TO_ANNOVAR = file("s3://fh-pi-jerome-k-eco/greninger-lab/clomp-reference-data/tool_specific_data/Tpallidum_WGS/ANNOVAR_Tools/annovar/convert2annovar.pl")
@@ -144,15 +140,9 @@ include {remapReads} from './modules'
 include {remapReads_2} from './modules'
 include {pilonPolishing} from './modules'
 include {remapPilon} from './modules'
-//include {generateConsensus} from './modules'
 include {generatePilonConsensus} from './modules'
-//include {annotateConsensus} from './modules'
 include {annotatePilonConsensus} from './modules'
-
 include {annotateVCFs} from './modules'
-
-//include {mlst} from './modules'
-//include {stats} from './modules'
 
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
@@ -174,7 +164,6 @@ workflow {
     )
 
     filterTp (
-        //trimReads.out,
         trimReads.out[0],
         REF_FASTAS
     )
@@ -222,8 +211,6 @@ workflow {
         moreFiltering.out[0]
     )
     mergeAssemblyMapping (
-        //deNovoAssembly.out[0],
-        //removeDuplicates.out[1],
 
         deNovoAssembly.out[0].groupTuple()
             .join(
