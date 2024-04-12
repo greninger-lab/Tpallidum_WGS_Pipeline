@@ -105,8 +105,8 @@ NC_021508_BWA5 = file("s3://fh-pi-jerome-k-eco/greninger-lab/clomp-reference-dat
 REF_GB = file("s3://fh-pi-jerome-k-eco/greninger-lab/clomp-reference-data/tool_specific_data/Tpallidum_WGS/refs/${params.REFERENCE}.gb")
 
 // Scripts
-TP_MAKE_SEQ = file("${baseDir}/tp_make_seq.R")
-TP_GENERATE_CONSENSUS = file("${baseDir}/tp_generate_consensus.R")
+TP_MAKE_SEQ = file("${baseDir}/bin/tp_make_seq.R")
+TP_GENERATE_CONSENSUS = file("${baseDir}/bin/tp_generate_consensus.R")
 
 //REPEAT_FILTER_FASTA = file("s3://fh-pi-jerome-k-eco/greninger-lab/clomp-reference-data/tool_specific_data/Tpallidum_WGS/refs/repeat_filter_UPDATE.fasta")
 REPEAT_FILTER_FASTA = file("s3://fh-pi-jerome-k-eco/greninger-lab/clomp-reference-data/tool_specific_data/Tpallidum_WGS/refs/repeat_filter_with_TprK.fasta")
@@ -269,8 +269,6 @@ workflow {
         REF_GB,
     )
 
-    
-
     annotateVCFs (
 
         trimReads.out[0], 
@@ -280,18 +278,6 @@ workflow {
         NC_021508,
         removeDuplicates.out[4]
     )
-
-    /*
-    annotateVCFs (
-        trimReads.out[0], 
-        REF_GB
-    )
-    */
-
-    //mlst (
-    //    generatePilonConsensus.out
-    //)
-
     }
     
     if(params.SKIP_DENOVO == true){ 
@@ -334,34 +320,5 @@ workflow {
         NC_021508,
         removeDuplicates.out[4]
     )
-
-    
-
-    /*
-
-    annotateVCFs (
-        file(CONVERT_TO_ANNOVAR),
-        file(GFF3_TO_GENE_PRED),
-        file(RETRIEVE_SEQ_FROM_FASTA),
-        file(ANNOTATE_VARIATION),
-        file(GFF),
-
-        callVariants.out[0],
-
-        file(NC_021508)
-    )
-    */
-
-    //mlst (
-    //    generatePilonConsensus.out
-    //)
-
-    }
-    
-    // stats (
-    //     input_read_ch,
-    //     //annotatePilonConsensus.out[1]
-    //
-    // )
 
 }

@@ -160,7 +160,7 @@ process samToBam {
         tuple val(base),file("${base}_firstmap.sorted.bam")// into Sorted_bam_ch
         file("*.fasta") optional true
 
-    publishDir "${params.OUTDIR}_firstmap.sorted.bam", mode: 'copy', pattern: '*_firstmap.bam'
+    publishDir "${params.OUTDIR}firstmap_sorted_bam", mode: 'copy', pattern: '*_firstmap.sorted.bam'
 
     script:
     """
