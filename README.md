@@ -3,6 +3,14 @@ This pipeline is intended for assembly and annotation of Treponema pallidum whol
 
 This pipeline takes gzipped fastq files and outputs consensus fastas annotated with Prokka. Running on the cloud is recommended due to memory-intensive mapping steps. 
 
+## Table of Contents
+* [Installation](#Installation)
+* [Usage](#Usage)
+* [Options](#Options)
+* [Workflow](#Workflow)
+* [Running example](#Running example)
+* [Explanation of output](#Explanation of output)
+
 ## Installation
 
 1. Install [nextflow](https://www.nextflow.io/docs/latest/getstarted.html#installation).
