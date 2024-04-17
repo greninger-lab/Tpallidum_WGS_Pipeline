@@ -8,8 +8,8 @@ This pipeline takes gzipped fastq files and outputs consensus fastas annotated w
 * [Usage](#Usage)
 * [Options](#Options)
 * [Workflow](#Workflow)
-* [Running example](#Running example)
-* [Explanation of output](#Explanation of output)
+* [Running example](#Example)
+* [Explanation of output](#Output)
 
 ## Installation
 
@@ -111,7 +111,7 @@ graph TD;
     callVariants-- SKIP_DENOVO Option -->remapReads; 
 ```
 
-## Running example
+## Example
 
 Install [sratoolkit](https://github.com/ncbi/sra-tools/wiki/02.-Installing-SRA-Toolkit)
 
@@ -156,7 +156,7 @@ Exit folder and use one of the example workflows to run example
 cd ..
 ``` 
 
-## Explanation of output
+## Output
 
 ```
 Example_Output/
