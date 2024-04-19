@@ -16,7 +16,7 @@ This pipeline takes gzipped fastq files and outputs consensus fastas annotated w
 1. Install [nextflow](https://www.nextflow.io/docs/latest/getstarted.html#installation).
    - Make sure you move nextflow to a directory in your PATH variable.
 2. Install [docker](https://docs.docker.com/get-docker/).
-3. Setup [nextflow tower](https://seqera.io/)
+3. If running on the cloud setup setup [nextflow tower](https://seqera.io/)
 
 > [!WARNING]
 Newer versions of java may have issues with spades, java 17.0.5 has been tested and works.
