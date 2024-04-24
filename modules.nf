@@ -195,11 +195,9 @@ process removeDuplicates{
     """
     #!/bin/bash
 
-    ls -latr
     /usr/local/bin/picard MarkDuplicates INPUT=${base}_firstmap.sorted.bam OUTPUT=${base}_firstmap_dedup.bam METRICS_FILE=${base}_metrics.txt REMOVE_DUPLICATES=true VALIDATION_STRINGENCY=SILENT
     /usr/local/bin/picard SamToFastq I=${base}_firstmap_dedup.bam FASTQ=${base}_deduped_r1.fastq SECOND_END_FASTQ=${base}_deduped_r2.fastq VALIDATION_STRINGENCY=SILENT
-    #picard MarkDuplicates INPUT=${base}_firstmap.sorted.bam OUTPUT=${base}_firstmap_dedup.bam METRICS_FILE=${base}_metrics.txt REMOVE_DUPLICATES=true VALIDATION_STRINGENCY=SILENT
-    #picard SamToFastq I=${base}_firstmap_dedup.bam FASTQ=${base}_deduped_r1.fastq SECOND_END_FASTQ=${base}_deduped_r2.fastq VALIDATION_STRINGENCY=SILENT
+
     """
 }
 
@@ -224,6 +222,26 @@ process callVariants {
     """
 }
 
+process downSample {
+    container "staphb/seqtk:1.4"
+
+    input:
+        tuple val(base),file("${base}_deduped_r1.fastq"),file("${base}_deduped_r2.fastq")
+    output:
+        tuple val(base),file("${base}_DownSample_r1.fastq"),file("${base}_DownSample_r2.fastq")
+
+    publishDir "${params.OUTDIR}downsample/${base}/", mode: 'copy', pattern: '*'
+
+    script:
+    """
+    #!/bin/bash
+
+    seqtk sample -s100 ${base}_deduped_r1.fastq ${params.DOWN_SAMPLE} > ${base}_DownSample_r1.fastq 
+    seqtk sample -s100 ${base}_deduped_r2.fastq ${params.DOWN_SAMPLE} > ${base}_DownSample_r2.fastq 
+
+    """
+}
+
 //Skip process if Skip Denovo Selected
 // De novo assemble matched reads with Unicycler
 process deNovoAssembly {
@@ -232,7 +250,7 @@ process deNovoAssembly {
     errorStrategy 'ignore'
 
     input:
-        tuple val(base),file("${base}_no_repeat_genes_r1.fastq.gz"), file("${base}_no_repeat_genes_r2.fastq.gz")// from extra_reads
+        tuple val(base),file("${base}_DownSample_r1.fastq"),file("${base}_DownSample_r2.fastq")
     output:
         tuple val(base),file("${base}_assembly.gfa"),file("${base}_assembly.fasta")// into Unicycler_ch
         file("*")// into Unicycler_dump_ch
@@ -243,9 +261,7 @@ process deNovoAssembly {
     """
     #!/bin/bash
 
-    ls -latr
-
-    unicycler -1 ${base}_no_repeat_genes_r1.fastq.gz -2 ${base}_no_repeat_genes_r2.fastq.gz -o ./ -t ${task.cpus}
+    unicycler -1 ${base}_DownSample_r1.fastq -2 ${base}_DownSample_r2.fastq -o ./ -t ${task.cpus}
 
     cp assembly.gfa ${base}_assembly.gfa
     cp assembly.fasta ${base}_assembly.fasta
@@ -465,4 +481,139 @@ process annotateVCFs {
     
     """
 
+}
+
+process stats {
+
+    container "staphb/samtools:1.19"
+
+    input:
+
+        tuple val(sample), path(raw_1), path(raw_2), path(trim_1), path(trim_2), path(firstmap_bam), path(dedup_bam), path(pilon_bam), path(final_fasta), path(final_fasta_csv) 
+
+    output:
+
+        file("*.csv")
+
+    script:
+
+    """
+    #!/bin/bash
+
+    raw=\$(gzip -dc ${raw_1} | wc -l)
+    raw=\$((raw / 2))
+
+    trimmed=\$(gzip -dc ${trim_1} | wc -l)
+    trimmed=\$((trimmed / 2))
+
+    firstmap_mapped=\$(samtools view -c -F 4 ${sample}_firstmap.sorted.bam)
+
+    dedup_mapped=\$(samtools view -c -F 4 ${sample}_firstmap_dedup.bam)
+
+    final=\$(samtools view -c -F 4 ${sample}_pilon_remapped.sorted.bam)
+
+    amb=\$(grep -o 'N' ${sample}_pilon_finalconsensusv2.fasta | wc -l)
+
+    echo "${sample},"\$raw","\$trimmed","\$firstmap_mapped","\$on_target_pct","\$dedup_mapped","\$Dedup","\$final","\$amb >> ${sample}_stats.csv
+
+    """
+
+}
+
+process mlst {
+
+    container "staphb/mlst:2.23.0-2024-04-01"
+
+    input:
+
+    tuple val(base),file("${base}_pilon_finalconsensusv2.fasta"),file("${base}_pilon_mappingstats.csv")
+
+    output:
+
+    file '*.csv'
+
+    script:
+    """
+
+    #!/bin/bash
+
+    mlst --csv ${base}_pilon_finalconsensusv2.fasta > ${base}_mlst.csv
+
+    """
+
+}
+
+process concatenateCSV {
+    
+    container "ubuntu:noble-20240407.1"
+
+    input:
+
+    file CSV
+    file MLST
+
+    output:
+
+    file 'final_stats.csv'
+    file 'mlst_concatenated.csv'
+
+    script:
+    """
+
+    #!/bin/bash
+
+    cat *_stats.csv > concatenated.csv
+
+    echo "sample,raw_reads,trimmed_reads,firstmap_bam_reads,on_target_pct,dedup_bam_reads,Dedup Percent,final_mapped_reads,ambiguities" > final_stats.csv
+    cat concatenated.csv >> final_stats.csv
+
+    cat *_mlst.csv > mlst_concatenated.csv
+
+    """
+}
+
+process finalStats {
+    
+    container "pandas/pandas:pip-all"
+
+    input:
+
+    file CSV
+    file MLST
+    file MLST_BD
+
+    output:
+
+    file ('*csv')
+
+    publishDir "${params.OUTDIR}", mode: 'copy', pattern: '*'
+
+    script:
+    """
+    #!/usr/bin/env python
+
+    import pandas as pd
+
+    stats_db = pd.read_csv('final_stats.csv')
+    mlst_db = pd.read_csv('mlst_concatenated.csv', header=None)
+    TP_mlst_db = pd.read_csv('TP_TypingDB.tsv', sep='\t')
+
+    stats_db['on_target_pct'] = stats_db['firstmap_bam_reads'] / stats_db['trimmed_reads'] * 100
+
+    stats_db['Dedup Percent'] = ( ( stats_db['trimmed_reads'] - stats_db['dedup_bam_reads'] ) * 100 ) / stats_db['trimmed_reads'] 
+
+    mlst_db.iloc[:, 0] = mlst_db.iloc[:, 0].str.replace('_pilon_finalconsensusv2.fasta', '')
+
+    headers = ['sample', 'Organism', 'ST', 'TP0136', 'TP0548', 'TP0705']
+    mlst_db.columns = headers 
+
+    mlst_db['ST'] = mlst_db['ST'].astype(str)
+    TP_mlst_db['ST'] = TP_mlst_db['ST'].astype(str)
+    mlst_db = pd.merge(mlst_db, TP_mlst_db[['ST','clonal_complex']], on='ST', how='left')
+
+    stats_db = pd.merge(stats_db, mlst_db, on='sample', how='left')
+
+    stats_db.to_csv('FINAL_STATS.csv', index=False)
+
+    """
 }

@@ -41,6 +41,7 @@ params.SINGLE_END = false
 //Choose what reference, default SS14
 params.REFERENCE = "NC_021508"
 params.SKIP_DENOVO = false
+params.DOWN_SAMPLE = "200000"
 
 if (params.REFERENCE == "SS14"){
     params.REFERENCE = "NC_021508"
@@ -114,6 +115,8 @@ ANNOTATE_VARIATION = file("s3://fh-pi-jerome-k-eco/greninger-lab/clomp-reference
 
 GFF = file("s3://fh-pi-jerome-k-eco/greninger-lab/clomp-reference-data/tool_specific_data/Tpallidum_WGS/ANNOVAR_Tools/Anotations/${params.REFERENCE}.gff3")
 
+MLST_TYPING = file("${baseDir}/bin/TP_TypingDB.tsv")
+
 // Read in fastq pairs into input_read_ch
 if(params.SINGLE_END == false){
     input_read_ch = Channel
@@ -134,6 +137,7 @@ include {mapReads} from './modules'
 include {samToBam} from './modules'
 include {removeDuplicates} from './modules'
 include {callVariants} from './modules'
+include {downSample} from './modules'
 include {deNovoAssembly} from './modules'
 include {mergeAssemblyMapping} from './modules'
 include {remapReads} from './modules'
@@ -143,6 +147,10 @@ include {remapPilon} from './modules'
 include {generatePilonConsensus} from './modules'
 include {annotatePilonConsensus} from './modules'
 include {annotateVCFs} from './modules'
+include {stats} from './modules'
+include {mlst} from './modules'
+include {concatenateCSV} from './modules'
+include {finalStats} from './modules'
 
 ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////
@@ -207,8 +215,11 @@ workflow {
 
     if(params.SKIP_DENOVO == false){    
 
+    downSample (
+        removeDuplicates.out[4]
+    )
     deNovoAssembly (
-        moreFiltering.out[0]
+        downSample.out[0]
     )
     mergeAssemblyMapping (
 
@@ -265,6 +276,7 @@ workflow {
         NC_021508,
         removeDuplicates.out[4]
     )
+
     }
     
     if(params.SKIP_DENOVO == true){ 
@@ -309,4 +321,41 @@ workflow {
     )
 
     }
+
+    input_read_ch
+    .join(trimReads.out)
+    .join(samToBam.out[0])
+    .join(removeDuplicates.out[0])
+    .join(remapPilon.out[0])
+    .join(generatePilonConsensus.out[0])
+    .map {sample, raw_1, raw_2, trim_1, trim_2, firstmap_bam, dedup_bam, pilon_bam, final_fasta, final_fasta_csv -> [sample, raw_1, raw_2, trim_1, trim_2, firstmap_bam, dedup_bam, pilon_bam, final_fasta, final_fasta_csv]} 
+    .set{ch_collect}
+
+    stats (
+
+        ch_collect
+
+    )
+
+    mlst (
+
+        generatePilonConsensus.out[0]
+
+    )
+
+    concatenateCSV (
+
+        stats.out[0].collect(),
+        mlst.out[0].collect()
+
+    )
+
+    finalStats (
+
+        concatenateCSV.out[0],
+        concatenateCSV.out[1],
+        MLST_TYPING
+
+    )
+    
 }
